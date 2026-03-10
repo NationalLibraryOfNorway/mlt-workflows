@@ -1,0 +1,97 @@
+name: build-publish-docker-image.yml
+on:
+  workflow_call:
+    inputs:
+      project-name:
+        description: Name of the project, which is used for the built Docker Image
+        required: true
+        type: string
+      dockerfile:
+        description: Path to the projects Dockerfile
+        required: true
+        type: string
+      artifact-name:
+        description: The name of the artifact to download, which has to be created from another job
+        required: true
+        type: string
+    secrets:
+      VAULT_ROLE_ID:
+        required: true
+      VAULT_SECRET_ID:
+        required: true
+jobs:
+  publish-image:
+    name: Build and Publish the Docker Image
+    # The if statement limits the job to only run if action was triggered on main branch or one of the tags
+    runs-on: self-hosted-linux
+    # Outputs allow a job to output values that can be picked up by _downstream_ jobs that _depend_ on this job
+    outputs:
+      # The metadata step produces an image tag that is then used in deployment jobs
+      # Gets the value from the "meta" step: [[meta-step-id]]
+      image-tags: ${{ steps.meta.outputs.tags }}
+      # Extract the version number from the metadata for cleaner prod deployment reference
+      version: ${{ steps.meta.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      # Sets up a Docker Build action which is then used to produce the Docker image
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # See this step description in the first job
+      - name: Import Secrets
+        uses: hashicorp/vault-action@v3
+        with:
+          url: ${{ secrets.NB_VAULT_URL }}
+          method: approle
+          roleId: ${{ secrets.VAULT_ROLE_ID }}
+          secretId: ${{ secrets.VAULT_SECRET_ID }}
+          secrets: secret/v1/application/k8s/mlt/data/harbor *
+
+      # Simple action that authenticates against the NLN's Harbor instance
+      # The url must be in form: https://<URL>, username and password should be for the GitHub robot user
+      # Ask Platform team to create a robot user with access to your project(s) in Harbor registry
+      - name: Log in to Harbor Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.HARBOR_URL }}
+          username: ${{ env.HARBOR_USERNAME }}
+          password: ${{ env.HARBOR_PASSWORD }}
+
+      # Create metadata needed for the Docker image
+      - name: Create Metadata for the Docker image
+        # Give this step a unique ID for referencing it elsewhere; here it is used to get the value of tags #[[meta-step-id]]
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          # Define to use for tags, can be multiple values if needed
+          images: harbor.nb.no/mlt/${{ inputs.project-name }}
+          # Defines a list of tag types to use for generating the metadata
+          # the semver type uses GitHub tag in semver form and turns it into a proper tag for the image (semantic versioning: v4.2.0 -> 4.2.0)
+          # the ref type bases its version either on branch or PR event and generates the tag for the image based on that (branch -> branch-name, pr -> pr-number)
+          tags: |
+            type=semver,pattern={{version}}
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,format=long,prefix=sha-
+          # Defines labels to be added to the image, these are key-value pairs that can be used for informational purposes or by other tools to filter images
+          flavor: |
+            latest=false
+
+      # Downloads previously uploaded artifact with the provided id / name
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        if: ${{ inputs.artifact-name != '' }}
+        with:
+          name: ${{ inputs.artifact-name }}
+
+      # Builds and publishes the image in Harbor
+      - name: Build and Publish the Docker Image
+        uses: docker/build-push-action@v6
+        with:
+          push: true                                # Makes the action push image to Harbor, equivalent to "--output-type=registry"
+          context: .                                # Build context, makes the build process use actual files in the runner instead of using files from GitHub
+          file: ${{ inputs.dockerfile }}            # Use Dockerfile specified by the repository calling the workflow
+          tags: ${{ steps.meta.outputs.tags }}      # Set tags for the image using output from the meta-step
+          labels: ${{ steps.meta.outputs.labels }}  # Set labels for the image using output from the meta-step
