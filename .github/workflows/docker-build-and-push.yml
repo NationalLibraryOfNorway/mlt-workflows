@@ -19,6 +19,8 @@ on:
         required: true
       VAULT_SECRET_ID:
         required: true
+      VAULT_URL:
+        required: true
 jobs:
   publish-image:
     name: Build and Publish the Docker Image
@@ -43,7 +45,7 @@ jobs:
       - name: Import Secrets
         uses: hashicorp/vault-action@v3
         with:
-          url: ${{ secrets.NB_VAULT_URL }}
+          url: ${{ secrets.VAULT_URL }}
           method: approle
           roleId: ${{ secrets.VAULT_ROLE_ID }}
           secretId: ${{ secrets.VAULT_SECRET_ID }}
