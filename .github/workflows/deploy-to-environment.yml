@@ -99,6 +99,6 @@ jobs:
       - name: Commit and push changes
         run: |
           cd mlt-argo
-          git add "${{ inputs.project-name }}/${{ inputs.environment }}/deployment.yml }}"
+          git add "${{ inputs.project-name }}/${{ inputs.environment }}/deployment.yml"
           git commit -m "ci: update ${{ inputs.environment }} ${{ inputs.project-name }} image tag to ${{ inputs.image-tag }}" || echo "No changes to commit"
           git push
