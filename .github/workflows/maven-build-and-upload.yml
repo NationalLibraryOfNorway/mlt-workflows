@@ -1,0 +1,119 @@
+name: maven-build-and-upload.yml
+on:
+  workflow_call:
+    inputs:
+      project-name:
+        description: Name of the project, which is used for uploading the artifact (the built jar)
+        type: string
+        required: true
+    secrets:
+      VAULT_ROLE_ID:
+        required: true
+      VAULT_SECRET_ID:
+        required: true
+jobs:
+  build-and-test-project:
+    # This name is displayed in the GitHub UI when the job is running
+    name: Build and Validate the Project
+    # Defines what runner to run this job on, if you want you can use an array of tags/identifiers to match the runner name
+    # For example, this can be written as [self-hosted, linux], and only the runner matching all of these values will run it
+    runs-on: self-hosted-linux
+    # List of steps that this job executes in sequential order, any changes done in one step will carry over to others
+    # Be mindful of that when making changes to files
+    steps:
+      # Simple step which merely checks out the repository to the runner, making it available for other steps
+      - name: Checkout
+        # Specifies that this step should run a pre-defined action, meaning an action that was made by someone else or exists elsewhere
+        # In this case the provided identifier is a reference to a repository in: https://github.com/actions/checkout
+        uses: actions/checkout@v6
+
+      # This step installs the specified Java JDK
+      - name: Setup Java JDK
+        uses: actions/setup-java@v5
+        # Settings/Inputs/Parameters for the action
+        with:
+          # What JDK distribution to download and use
+          distribution: temurin # If you have no good reasons to choose something else, go with Temurin distribution
+          java-version: 21
+          architecture: x64
+          # Sets up caching and restoring of dependencies for the specified package manager
+          # NB! If you decide to use a non-standard path for package repositories, you need to set up caching yourself
+          #     In that case use the "@actions/cache" action
+          cache: maven
+
+      # Since the self-hosted runner does not come with Maven, it must be installed manually
+      # Same for git, it is needed to upload the test results, hence why repo is initialized using "git init"
+      # Lastly gettext provides envsubst which is used in the [[verify-the-project]] step to replace env variables
+      - name: Install Maven and Initialize Repo
+        # Map of environment variables available for this step only, you can define it on job or workflow level too
+        env:
+          MAVEN_VERSION: 3.9.13 # So we can easily change the Maven version
+        run: | # Pipe allows to make the script multiline, if you need to run only one command you can skip it
+          sudo apt-get update -y
+          sudo apt-get install wget git gettext -y
+          wget https://downloads.apache.org/maven/maven-3/$MAVEN_VERSION/binaries/apache-maven-$MAVEN_VERSION-bin.tar.gz
+          sudo tar xzf apache-maven-$MAVEN_VERSION-bin.tar.gz -C /opt
+          sudo ln -s /opt/apache-maven-$MAVEN_VERSION/bin/mvn /usr/local/bin/mvn
+          echo "PATH=/opt/apache-maven-$MAVEN_VERSION/bin:$PATH" >> $GITHUB_ENV
+          git init
+          mvn -v
+
+      # This step imports secrets from Vault, it is recommended to use Vault as it allows checking and editing the secrets
+      # GitHub does not permit checking the value of a secret or re-using secrets
+      # Speak with the Platform team to set up a namespace if needed
+      # They should also create an approle "user" which allows fetching the secrets within a GitHub action
+      #
+      # The url must be in form: https://<URL>, while IDs are UUIDs
+      # When providing the path to the secret you need to include "/data" after namespace and before the secret name
+      - name: Import Secrets
+        uses: hashicorp/vault-action@v3
+        with:
+          url: ${{ secrets.NB_VAULT_URL }}
+          method: approle                                      # Method used to authenticate against Vault
+          roleId: ${{ secrets.VAULT_ROLE_ID }}
+          secretId: ${{ secrets.VAULT_SECRET_ID }}
+          secrets: secret/v1/application/k8s/mlt/data/proxy *  # The "*" at the end is a wildcard, it will get all secrets in the path
+
+      # This step actually builds, tests, and verifies the project using Maven #[[verify-the-project]]
+      # "envsubst" supplies proxy settings for Maven, proxy host address must be an IP address, not a URL
+      - name: Verify the Project
+        # Replace tags in settings.xml with values from environment and save it to a new file, then use it when running Maven
+        run: |
+          envsubst < .m2/settings.xml > .m2/replaced.xml
+          mvn -B -e -s .m2/replaced.xml verify
+
+      # This step uses the test-reporter action to publish test results in the workflow run #[[test-report-publisher]]
+      # It looks for any file named "TEST-...xml" in the project and uses it to publish the test results
+      # The job name in GitHub with the test results is "JUnit Test Results"
+      - name: Publish Test Report
+        uses: dorny/test-reporter@v2
+        # If defines conditions that need to be fulfilled to run this step, in this case this step will always run
+        # That is because the report should be published, even if the tests failed
+        if: always()
+        with:
+          name: JUnit Test Results  # Name for the report
+          path: ./**/TEST-*.xml     # Where to look for report files, any file named "TEST-...xml" anywhere in the project
+          reporter: java-junit      # What reporter to use, since this project uses JUnit, the reporter is "java-junit"
+          fail-on-error: true       # Fail this step if there are test errors
+          fail-on-empty: true       # Fail this step if no test results were found
+
+      # This step checks the code for any TODO or FIXME comments and fails the job if any are found
+      - name: Check for TODOs
+        run: |
+          if grep -Eri --exclude-dir={.git,.github,.idea,.m2,.mvn,node_modules,target} "([/*#]+[ ]*(\bTODO\b|\bFIXME\b)+)" . ; then
+            echo "TODOs found! Turn them into Jira tasks and remove them from the code"
+            exit 69
+          else
+            echo "No TODOs found."
+          fi
+
+      # This step uploads the build files as an artifact which can then be used in other jobs
+      - name: Upload the Build
+        uses: actions/upload-artifact@v7
+        with:
+          name: packaged-project                  # Artifact ID, used to reference the artifact in other jobs when downloading it #[[packaged-project-id]]
+          path: |                                 # File(s) to include, the path is relative to the repository root, set "project.build.finalName --> ${project.artifactId}" in pom.xml to drop the version suffix
+            target/${{ inputs.project-name }}.jar
+          if-no-files-found: error                # Fail if artifact is not found
+          include-hidden-files: true              # Include hidden files in the artifact
+          overwrite: true                         # Allow overwriting of previous artifacts
