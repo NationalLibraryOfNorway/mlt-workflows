@@ -11,7 +11,7 @@ on:
         required: true
       VAULT_SECRET_ID:
         required: true
-      VAULT_URL:
+      NB_VAULT_URL:
         required: true
 jobs:
   build-and-test-project:
