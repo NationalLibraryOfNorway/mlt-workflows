@@ -6,13 +6,6 @@ on:
         description: Name of the project, which is used for uploading the artifact (the built jar)
         type: string
         required: true
-    secrets:
-      VAULT_ROLE_ID:
-        required: true
-      VAULT_SECRET_ID:
-        required: true
-      NB_VAULT_URL:
-        required: true
 jobs:
   build-and-test-project:
     # This name is displayed in the GitHub UI when the job is running
@@ -70,7 +63,7 @@ jobs:
       - name: Import Secrets
         uses: hashicorp/vault-action@v3
         with:
-          url: ${{ secrets.VAULT_URL }}
+          url: ${{ secrets.NB_VAULT_URL }}
           method: approle                                      # Method used to authenticate against Vault
           roleId: ${{ secrets.VAULT_ROLE_ID }}
           secretId: ${{ secrets.VAULT_SECRET_ID }}
