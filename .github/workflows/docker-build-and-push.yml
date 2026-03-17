@@ -15,11 +15,11 @@ on:
         required: true
         type: string
     secrets:
-      VAULT_ROLE_ID:
+      MLT_VAULT_ROLE_ID:
         required: true
-      VAULT_SECRET_ID:
+      MLT_VAULT_SECRET_ID:
         required: true
-      VAULT_URL:
+      MLT_VAULT_URL:
         required: true
 jobs:
   publish-image:
