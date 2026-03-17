@@ -65,8 +65,8 @@ jobs:
         with:
           url: ${{ secrets.NB_VAULT_URL }}
           method: approle                                      # Method used to authenticate against Vault
-          roleId: ${{ secrets.VAULT_ROLE_ID }}
-          secretId: ${{ secrets.VAULT_SECRET_ID }}
+          roleId: ${{ secrets.MLT_VAULT_ROLE_ID }}
+          secretId: ${{ secrets.MLT_VAULT_SECRET_ID }}
           secrets: secret/v1/application/k8s/mlt/data/proxy *  # The "*" at the end is a wildcard, it will get all secrets in the path
 
       # This step actually builds, tests, and verifies the project using Maven #[[verify-the-project]]
