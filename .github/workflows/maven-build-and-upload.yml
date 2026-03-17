@@ -6,6 +6,13 @@ on:
         description: Name of the project, which is used for uploading the artifact (the built jar)
         type: string
         required: true
+    secrets:
+      MLT_VAULT_ROLE_ID:
+        required: true
+      MLT_VAULT_SECRET_ID:
+        required: true
+      MLT_VAULT_URL:
+        required: true
 jobs:
   build-and-test-project:
     # This name is displayed in the GitHub UI when the job is running

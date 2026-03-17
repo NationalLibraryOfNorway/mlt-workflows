@@ -45,7 +45,7 @@ jobs:
       - name: Import Secrets
         uses: hashicorp/vault-action@v3
         with:
-          url: ${{ secrets.NB_VAULT_URL }}
+          url: ${{ secrets.MLT_VAULT_URL }}
           method: approle
           roleId: ${{ secrets.MLT_VAULT_ROLE_ID }}
           secretId: ${{ secrets.MLT_VAULT_SECRET_ID }}
