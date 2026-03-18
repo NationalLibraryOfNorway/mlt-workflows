@@ -15,11 +15,11 @@ on:
         required: true
         type: string
     secrets:
-      VAULT_ROLE_ID:
+      MLT_VAULT_ROLE_ID:
         required: true
-      VAULT_SECRET_ID:
+      MLT_VAULT_SECRET_ID:
         required: true
-      VAULT_URL:
+      MLT_VAULT_URL:
         required: true
 jobs:
   publish-image:
@@ -45,10 +45,10 @@ jobs:
       - name: Import Secrets
         uses: hashicorp/vault-action@v3
         with:
-          url: ${{ secrets.VAULT_URL }}
+          url: ${{ secrets.MLT_VAULT_URL }}
           method: approle
-          roleId: ${{ secrets.VAULT_ROLE_ID }}
-          secretId: ${{ secrets.VAULT_SECRET_ID }}
+          roleId: ${{ secrets.MLT_VAULT_ROLE_ID }}
+          secretId: ${{ secrets.MLT_VAULT_SECRET_ID }}
           secrets: secret/v1/application/k8s/mlt/data/harbor *
 
       # Simple action that authenticates against the NLN's Harbor instance
