@@ -75,6 +75,7 @@ jobs:
           roleId: ${{ secrets.MLT_VAULT_ROLE_ID }}
           secretId: ${{ secrets.MLT_VAULT_SECRET_ID }}
           secrets: secret/v1/application/k8s/mlt/data/proxy *  # The "*" at the end is a wildcard, it will get all secrets in the path
+          tlsSkipVerify: true
 
       # This step actually builds, tests, and verifies the project using Maven #[[verify-the-project]]
       # "envsubst" supplies proxy settings for Maven, proxy host address must be an IP address, not a URL
