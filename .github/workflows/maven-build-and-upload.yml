@@ -68,7 +68,7 @@ jobs:
       # The url must be in form: https://<URL>, while IDs are UUIDs
       # When providing the path to the secret you need to include "/data" after namespace and before the secret name
       - name: Import Secrets
-        uses: hashicorp/vault-action@v3
+        uses: hashicorp/vault-action@v4
         with:
           url: ${{ secrets.MLT_VAULT_URL }}
           method: approle                                      # Method used to authenticate against Vault
