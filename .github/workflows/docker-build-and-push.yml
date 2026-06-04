@@ -69,7 +69,7 @@ jobs:
       - name: Create Metadata for the Docker image
         # Give this step a unique ID for referencing it elsewhere; here it is used to get the value of tags #[[meta-step-id]]
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           # Define to use for tags, can be multiple values if needed
           images: harbor.nb.no/mlt/${{ inputs.project-name }}
