@@ -39,7 +39,7 @@ jobs:
       # Generate a GitHub App token to authenticate with the mlt-argo repository
       # This token has limited scope and expires after use, more secure than a PAT
       - name: Generate token for mlt-argo repository
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@v3
         id: generate-token
         with:
           app-id: ${{ secrets.MLT_ARGO_APP_ID }}
